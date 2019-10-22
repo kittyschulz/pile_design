@@ -9,7 +9,7 @@ class soil():
         self.cohesion = cohesion
         self.layer_thickness = layer_thickness
         self.top_depth = top_depth
-        
+
         self.hazard = hazard
         if self.uscs == "OL":
             self.hazard = True
@@ -21,8 +21,7 @@ class pier():
         self.required_capacity = required_capacity
 
         self.pier_diam = None
-        self.plate_config = None
-        self.plate_area = None
+        self.plate_config = []
         self.pier_depth = None
     
     def capacity(self, soils):
@@ -42,27 +41,36 @@ class pier():
     def torque(self):
         pass
 
-    def spacing(self, FS=3):
-        # capacity/P/FS
-        pass
+    # def spacing(self, FS=3):
+    #     # capacity/P/FS
+    #     pass
 
     def lateral_resistance(self, batter=10):
         pass
 
     def bucking(self, soils):
-        for i, soil in enumerate(soils):
+
+        for soil in soils:
             if soil.hazard == True:
-                # calculate buckling
-                pass
-        pass
+                k_h = 
+                r_value = ((29000000*0.851)/(k_h*self.pier_diam))**0.25
+                i_max = soil.layer_thickness/r_value
+
+                ultimate_capacity = 3*(29000000*i_max/r_value**2)
+                allowable_capacity = ultimate_capacity/2
+                if allowable_capacity < self.required_capacity:
+                    print("WARNING: Lack of adequate lateral capacity from"
+                          "{} to {} feet below ground surface. Allowable capacity"
+                          "does not exceed {} pounds. Required capacity is {} pounds."
+                          "Increase pier diameter or number of piers in group.".format(soil.top_depth, soil.top_depth+soil.layer_thickness, allowable_capacity, self.required_capacity)
 
     def plate_area(self):
         if self.pier_diam > 5 and np.any(self.plate_config) < 12:
             print("WARNING: Plates smaller than 12-inches diameter will"
                   "provide little bearing capacity.")
 
-        inner_diameter = (math.pi()*(self.pier_diam/12)**2)/4
-        plate_area = np.array([(math.pi()*plate/12)**2)/4 for plate in self.plate_config])
+        inner_diameter = math.pi*(self.pier_diam/12**2)/4
+        plate_area = np.array([math.pi*(plate/12**2)/4 for plate in self.plate_config])
         plate_area -= inner_diameter
 
         self.plate_area = sum(plate_area)
