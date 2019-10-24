@@ -29,7 +29,6 @@ class pier():
         for i, soil in enumerate(soils):
             depths = np.linspace(soil.top_depth, soil.layer_thickness, 10)
             if soil.hazard == True:
-                capacities[soil] = 0 
                 print("WARNING: Soil {} is a sensitive organic soil. This soil"
                       "layer is not a suitable bearing medium for the helical pier."
                       "Piers extended through this strata are at risk of buckling.".format(i))
@@ -66,7 +65,8 @@ class pier():
 
         for soil in soils:
             if soil.hazard == True:
-                #k_h = 
+                # Nope, but need to give it a dummy until I remember how to calculate it.
+                k_h = 10
                 r_value = ((29000000*0.851)/(k_h*self.pier_diam))**0.25
                 i_max = soil.layer_thickness/r_value
 
@@ -88,7 +88,15 @@ class pier():
         plate_area -= inner_diameter
 
         self.plate_area = sum(plate_area)
+        
 
+def required_pier_capacity(load, FS=2, piers_in_group=1):
+    return load/(FS*piers_in_group)
+
+
+
+# for reference:
+# SHAFT STRUCTURAL CAPACITIES
 # 2,375     100.000     6.000
 # 2,375     135.000     9.000
 # 2,875     140.000     13.000
@@ -97,6 +105,3 @@ class pier():
 # 3,500     290.000     27.000
 # 4,500     260.000     30.000
 # 4.500     350.000     48.000
-
-def required_pier_capacity(load, FS=2, piers_in_group=1):
-    return load/(FS*piers_in_group)
