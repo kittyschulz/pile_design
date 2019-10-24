@@ -2,9 +2,6 @@ import numpy as np
 import math 
 
 class soil():
-    """
-    
-    """
     def __init__(self, unit_weight, friction_angle, cohesion, layer_depth=None):
         self.gamma = unit_weight
         self.phi = friction_angle
