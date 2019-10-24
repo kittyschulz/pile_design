@@ -58,13 +58,14 @@ class pier():
     #     # capacity/P/FS
     #     pass
 
-    def lateral_resistance(self, batter=10):
-        pass
-
-    def bucking(self, soils):
+    def lateral_capacity(self, soils, batter=10):
 
         for soil in soils:
             if soil.hazard == True:
+                print("HAZARD WARNING: Sensitive soils provide no lateral capacity."
+                      "Function will check for potential buckling though this stratum"
+                      "instead.")
+
                 # Nope, but need to give it a dummy until I remember how to calculate it.
                 k_h = 10
                 r_value = ((29000000*0.851)/(k_h*self.pier_diam))**0.25
@@ -73,12 +74,17 @@ class pier():
                 ultimate_capacity = 3*(29000000*i_max/r_value**2)
                 allowable_capacity = ultimate_capacity/2
                 if allowable_capacity < self.required_capacity:
-                    print("WARNING: Lack of adequate lateral capacity from"
+                    print("BUCKLING WARNING: Lack of adequate lateral capacity from"
                           "{} to {} feet below ground surface. Allowable capacity"
                           "does not exceed {} pounds. Required capacity is {} pounds."
                           "Increase pier diameter or number of piers in group.".format(soil.top_depth, soil.top_depth+soil.layer_thickness, allowable_capacity, self.required_capacity))
 
-    def plate_area(self):
+            else: 
+                pass
+                # return a calculation of the horizontal component of the ultimate capacity.
+
+
+    def _plate_area(self):
         if self.pier_diam > 5 and np.any(self.plate_config) < 12:
             print("WARNING: Plates smaller than 12-inches diameter will"
                   "provide little bearing capacity.")
