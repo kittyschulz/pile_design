@@ -25,7 +25,7 @@ class pier():
         self.pier_depth = None
     
     def capacity(self, soils):
-        capacities = {}
+        allowable_bearing_depth = {}
         for i, soil in enumerate(soils):
             depths = np.linspace(soil.top_depth, soil.layer_thickness, 10)
             if soil.hazard == True:
@@ -34,9 +34,23 @@ class pier():
                       "layer is not a suitable bearing medium for the helical pier."
                       "Piers extended through this strata are at risk of buckling.".format(i))
             else:
+                if np.any([soil.hazard == True for soil in soils[i+1:]]):
+                    print("WARNING: Soils below this strata are designated as sensitive"
+                      "fine grained or organic soil. These soil layers are not capable"
+                      "of resisting the compressive forces of the piers. Installing a"
+                      "helical pier in bearing stratum above a sensitive layer may lead"
+                      "to excessive settlement or loss of capacity. \n Please carefully"
+                      "review the boring logs.")
+
                 cohesive = self.plate_area*soil.cohesion*9
                 cohesionless = (self.plate_area*soil.Nq*soil.gamma)*depths
-                capacities[soil] = dict(zip(depths, cohesionless+cohesive))
+                # Applying a FS=2; need to check if this is redundant. 
+                total_capacities = (cohesionless+cohesive)/2
+
+                for d, total_capacity in enumerate(total_capacities):
+                    if total_capacity > self.required_capacity:
+                        allowable_bearing_depth[depths[d]] = total_capacity
+        return allowable_bearing_depth
 
     def torque(self):
         pass
@@ -52,7 +66,7 @@ class pier():
 
         for soil in soils:
             if soil.hazard == True:
-                k_h = 
+                #k_h = 
                 r_value = ((29000000*0.851)/(k_h*self.pier_diam))**0.25
                 i_max = soil.layer_thickness/r_value
 
@@ -62,7 +76,7 @@ class pier():
                     print("WARNING: Lack of adequate lateral capacity from"
                           "{} to {} feet below ground surface. Allowable capacity"
                           "does not exceed {} pounds. Required capacity is {} pounds."
-                          "Increase pier diameter or number of piers in group.".format(soil.top_depth, soil.top_depth+soil.layer_thickness, allowable_capacity, self.required_capacity)
+                          "Increase pier diameter or number of piers in group.".format(soil.top_depth, soil.top_depth+soil.layer_thickness, allowable_capacity, self.required_capacity))
 
     def plate_area(self):
         if self.pier_diam > 5 and np.any(self.plate_config) < 12:
