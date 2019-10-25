@@ -23,18 +23,19 @@ class pier():
         self.pier_diam = None
         self.plate_config = []
         self.pier_depth = None
+        self.shaft_capacity = None
     
     def capacity(self, soils):
         allowable_bearing_depth = {}
         for i, soil in enumerate(soils):
             depths = np.linspace(soil.top_depth, soil.layer_thickness, 10)
             if soil.hazard == True:
-                print("WARNING: Soil {} is a sensitive organic soil. This soil"
+                print("HAZARD WARNING: Soil {} is a sensitive organic soil. This soil"
                       "layer is not a suitable bearing medium for the helical pier."
                       "Piers extended through this strata are at risk of buckling.".format(i))
             else:
                 if np.any([soil.hazard == True for soil in soils[i+1:]]):
-                    print("WARNING: Soils below this strata are designated as sensitive"
+                    print("HAZARD WARNING: Soils below this strata are designated as sensitive"
                       "fine grained or organic soil. These soil layers are not capable"
                       "of resisting the compressive forces of the piers. Installing a"
                       "helical pier in bearing stratum above a sensitive layer may lead"
@@ -73,7 +74,8 @@ class pier():
 
                 ultimate_capacity = 3*(29000000*i_max/r_value**2)
                 allowable_capacity = ultimate_capacity/2
-                if allowable_capacity < self.required_capacity:
+                if allowable_capacity < self.shaft_capacity:
+                # need to add a function to get the approximated lower bround of the shaft capacity given a pier shaft of diameter d
                     print("BUCKLING WARNING: Lack of adequate lateral capacity from"
                           "{} to {} feet below ground surface. Allowable capacity"
                           "does not exceed {} pounds. Required capacity is {} pounds."
