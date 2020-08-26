@@ -1,27 +1,10 @@
 import numpy as np
 import math 
-
-class soil():
-    """
-
-    """
-    def __init__(self, uscs, unit_weight, friction_angle, cohesion, layer_thickness, top_depth, hazard=False):
-        self.uscs = uscs
-        self.gamma = unit_weight
-        self.phi = friction_angle
-        self.cohesion = cohesion
-        self.layer_thickness = layer_thickness
-        self.top_depth = top_depth
-
-        self.hazard = hazard
-        if self.uscs == "OL":
-            self.hazard = True
-
-        self.Nq = (0.3359)*np.exp(0.1247*self.phi)
+from soil import Soil
        
 class pier():
     """
-    
+
     """
     def __init__(self, required_capacity):
         self.required_capacity = required_capacity
@@ -32,37 +15,66 @@ class pier():
         self.plate_config = []
         self.pier_depth = None
         self.shaft_capacity = None 
+
+        self.allowable_bearing_depth = None
+        self.allowable_bearing_strata = None
     
-    def capacity(self, soils):
-        allowable_bearing_depth = {}
-        for i, soil in enumerate(soils):
-            depths = np.linspace(soil.top_depth, soil.layer_thickness, 10)
-            if soil.hazard == True:
-                print("HAZARD WARNING: Soil strata {} is classified as a sensitive "
-                      "fine grained or organic soil. This soil layer is not a suitable " 
-                      "bearing medium for the helical pier. Piers extended through "
-                      "this strata may be at risk of buckling.".format(i))
+    def calculate_bearing_capacity(soil, safety_factor):
+        soil.Nq = (0.3359)*np.exp(0.1247*self.phi)
+        
+        depths = np.arange(soil.layer_depth, (soil.layer_thickness+soil.layer_depth), 0.5)
+
+        cohesive = self.plate_area*soil.cohesion*9
+        cohesionless = (self.plate_area*soil.Nq*soil.gamma)*depths
+        total_capacities = (cohesionless+cohesive)/safety_factor
+
+        if np.all(total_capacities > self.required_capacity):
+            self.allowable_bearing_depth = depths[0]
+            self.allowable_bearing_strata = soil
+
+        elif np.all(total_capacities < self.required_capacity):
+            if soil.underlying_layer is not None:
+                calculate_bearing_capacity(soil.underlying_layer, safety_factor)
             else:
-                if np.any([soil.hazard == True for soil in soils[i+1:]]):
-                    print("HAZARD WARNING: Soils below this strata are designated as sensitive"
-                      "fine grained or organic soils. These soil layers are not capable"
-                      "of resisting the compressive force of the piers. Installing a"
-                      "helical pier in bearing stratum above a sensitive layer may lead"
-                      "to significant consolidation or loss of capacity. \n Please carefully"
-                      "review the boring logs.")
+                print("WARNING: The required bearing capacity can not be achieved
+                " at any depth within the soil profile as described.")
+        
+        else:
+            possible_bearing_depths = np.where(total_capacities > self.required_capacity)
+            for depth in possible_bearing_depths:
+                if np.all(total_capacities[depth:] == True):
+                    self.allowable_bearing_depth = depth
+                    self.allowable_bearing_strata = soil
 
-                cohesive = self.plate_area*soil.cohesion*9
-                cohesionless = (self.plate_area*soil.Nq*soil.gamma)*depths
+    def check_hazard(self, soil_profile):
+        hazards = []
+        while soil.underlying_layer is not None:
+            if soil.harzard == True:
+                hazards.append(True)
+            else:
+                hazards.append(False)
 
-                # Applying a FS=2; need to check if this is redundant. 
-                # There may also be a function that sums the capacity resulting from
-                # cohesive vs. cohesionless properties differently
-                total_capacities = (cohesionless+cohesive)/2
+        if np.all(hazards == True):
+            print("HAZARD WARNING: The soil profile as described contains no
+            " suitable bearing medium. Please review the boring logs carefully.")
+            hazards = -1
+        elif np.all(hazards == False):
+            hazards = 0
+        else:
+            hazards = len(hazards) - 1 - hazards[::-1].index(True)
+        return hazards
 
-                for d, total_capacity in enumerate(total_capacities):
-                    if total_capacity > self.required_capacity:
-                        allowable_bearing_depth[depths[d]] = total_capacity
-        return allowable_bearing_depth
+    def capacity(self, soil_profile, safety_factor=2):
+        soil_layer = soil_profile
+        layer_number = 0
+
+        hazards = self.check_hazard(soil_profile)
+        if hazards >= 0:
+        while layer_number < hazards: 
+            soil_layer = soil.underlying_layer
+            layer_number += 1
+            
+        calculate_bearing_capacity(soil_layer, safety_factor)
 
     def torque(self):
         pass
