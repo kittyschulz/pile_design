@@ -2,6 +2,9 @@ import numpy as np
 import math 
 
 class soil():
+    """
+
+    """
     def __init__(self, uscs, unit_weight, friction_angle, cohesion, layer_thickness, top_depth, hazard=False):
         self.uscs = uscs
         self.gamma = unit_weight
@@ -17,6 +20,9 @@ class soil():
         self.Nq = (0.3359)*np.exp(0.1247*self.phi)
        
 class pier():
+    """
+    
+    """
     def __init__(self, required_capacity):
         self.required_capacity = required_capacity
 
@@ -32,16 +38,17 @@ class pier():
         for i, soil in enumerate(soils):
             depths = np.linspace(soil.top_depth, soil.layer_thickness, 10)
             if soil.hazard == True:
-                print("HAZARD WARNING: Soil {} is a sensitive organic soil. This soil"
-                      "layer is not a suitable bearing medium for the helical pier."
-                      "Piers extended through this strata are at risk of buckling.".format(i))
+                print("HAZARD WARNING: Soil strata {} is classified as a sensitive "
+                      "fine grained or organic soil. This soil layer is not a suitable " 
+                      "bearing medium for the helical pier. Piers extended through "
+                      "this strata may be at risk of buckling.".format(i))
             else:
                 if np.any([soil.hazard == True for soil in soils[i+1:]]):
                     print("HAZARD WARNING: Soils below this strata are designated as sensitive"
-                      "fine grained or organic soil. These soil layers are not capable"
+                      "fine grained or organic soils. These soil layers are not capable"
                       "of resisting the compressive force of the piers. Installing a"
                       "helical pier in bearing stratum above a sensitive layer may lead"
-                      "to excessive settlement or loss of capacity. \n Please carefully"
+                      "to significant consolidation or loss of capacity. \n Please carefully"
                       "review the boring logs.")
 
                 cohesive = self.plate_area*soil.cohesion*9
