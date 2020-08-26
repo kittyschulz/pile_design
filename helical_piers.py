@@ -20,10 +20,12 @@ class pier():
     def __init__(self, required_capacity):
         self.required_capacity = required_capacity
 
+        # none of these have been defined through any function.
+        # the shaft capacity is a function of pier diameter.
         self.pier_diam = None
         self.plate_config = []
         self.pier_depth = None
-        self.shaft_capacity = None
+        self.shaft_capacity = None 
     
     def capacity(self, soils):
         allowable_bearing_depth = {}
@@ -37,14 +39,17 @@ class pier():
                 if np.any([soil.hazard == True for soil in soils[i+1:]]):
                     print("HAZARD WARNING: Soils below this strata are designated as sensitive"
                       "fine grained or organic soil. These soil layers are not capable"
-                      "of resisting the compressive forces of the piers. Installing a"
+                      "of resisting the compressive force of the piers. Installing a"
                       "helical pier in bearing stratum above a sensitive layer may lead"
                       "to excessive settlement or loss of capacity. \n Please carefully"
                       "review the boring logs.")
 
                 cohesive = self.plate_area*soil.cohesion*9
                 cohesionless = (self.plate_area*soil.Nq*soil.gamma)*depths
+
                 # Applying a FS=2; need to check if this is redundant. 
+                # There may also be a function that sums the capacity resulting from
+                # cohesive vs. cohesionless properties differently
                 total_capacities = (cohesionless+cohesive)/2
 
                 for d, total_capacity in enumerate(total_capacities):
@@ -64,8 +69,8 @@ class pier():
         for soil in soils:
             if soil.hazard == True:
                 print("HAZARD WARNING: Sensitive soils provide no lateral capacity."
-                      "Function will check for potential buckling though this stratum"
-                      "instead.")
+                      "Function will check for buckling of structural member though this stratum"
+                      "instead of lateral capacity.")
 
                 # Nope, but need to give it a dummy until I remember how to calculate it.
                 k_h = 10
@@ -82,9 +87,11 @@ class pier():
                           "Increase pier diameter or number of piers in group.".format(soil.top_depth, soil.top_depth+soil.layer_thickness, allowable_capacity, self.required_capacity))
 
             else: 
-                pass
-                # return a calculation of the horizontal component of the ultimate capacity.
-
+                
+                # ultimate capacity needs to be defined!
+                ultimate_capacity = False 
+                horizontal_component = np.tan(batter)*ultimate_capacity
+                return horizontal_component
 
     def _plate_area(self):
         if self.pier_diam > 5 and np.any(self.plate_config) < 12:
@@ -112,4 +119,4 @@ def required_pier_capacity(load, FS=2, piers_in_group=1):
 # 3,500     210.000     18.000
 # 3,500     290.000     27.000
 # 4,500     260.000     30.000
-# 4.500     350.000     48.000
+# 4,500     350.000     48.000
