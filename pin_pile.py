@@ -27,22 +27,43 @@ class Soil():
 
     Methods
     -------
-
+    insert(unit_weight, friction_angle, cohesion, layer_depth):
+        Adds a new soil layer to the subsurface profile.
     """
 
-    def __init__(self, unit_weight, friction_angle, cohesion, layer_depth=None):
+    def __init__(self, unit_weight, friction_angle, cohesion, layer_depth, hazard=False, uscs=None):
         self.gamma = unit_weight
         self.phi = friction_angle
         self.cohesion = cohesion
         self.layer_depth = layer_depth
+        self.hazard = hazard
+        self.uscs = uscs
 
         self.layer_thickness = None
         self.underlying_layer = None
 
-    def insert(self, unit_weight, friction_angle, cohesion, layer_depth=None):
+    def insert(self, unit_weight, friction_angle, cohesion, layer_depth, hazard=False, uscs=None):
+        """
+        Adds a new soil layer to the subsurface profile.
+
+        Args:
+            unit_weight : (flt)
+                approximate unit weight of the soil.
+            friction_angle : (flt)
+                approximate friction angle of the soil.
+            cohesion : (flt)
+                approximate cohesion of the soil.
+            layer_depth : (flt)
+                the depth from the ground surface (z = 0) to the
+                top of the soil strata (z > 0).
+
+        Returns:
+            None
+        """
+
         if layer_depth > self.layer_depth:
             if self.underlying_layer is None:
-                self.underlying_layer = soil(unit_weight, friction_angle, cohesion, layer_depth)
+                self.underlying_layer = Soil(unit_weight, friction_angle, cohesion, layer_depth)
                 self.layer_thickness = layer_depth - self.layer_depth
             else:
                 self.underlying_layer.insert(unit_weight, friction_angle, cohesion, layer_depth)
@@ -57,25 +78,31 @@ class Pile():
 
     Attributes
     ----------
-    width : (flt))
+    width : (flt)
         width of a single pin pile. 
     spacing : (flt)
         center-to-center spacing on pin piles.
 
     Methods
     -------
-    design_depth(slide_mass, intact_soil)
+    design_depth(slide_mass, intact_soil):
+        calculates the required design depth of the pin piles.
 
-    bending_moment(slide_mass, intact_soil)
+    bending_moment(slide_mass, intact_soil):
+        calculates the bending moment of a pin pile. 
+        Bending moment is used to determine the ultimate design depth.
 
     print_results():
-
-
+        prints the calculated design specifications to the 
+        terminal in a succinct narrative for easy interpretation.
     """
+
     def __init__(self, width, spacing):
+        # pre-determined pile specifications
         self.width = width
         self.spacing = self.width*spacing
 
+        # calculated parameters
         self.sigma_avg = None
         self.sigma_L_ds = None
         self.sum_T = None
@@ -88,9 +115,29 @@ class Pile():
         self.moment = None
         self.moment_arm = None
 
-    def design_depth(self, slide_mass, intact_soil):
+    def calculate_min_depth(self, slide_mass, intact_soil):
+        """
+        Calculates the required design depth for the pin piles
+        to retain the slide mass as defined by user. 
 
-        depth = np.linspace(0, slide_mass.layer_depth, num=5)
+        Args:
+            slide_mass : (Soil) 
+            a Soil instance representing the slide mass.
+
+            intact_soil : (Soil) 
+            a Soil instance representing the intact soil
+            layer the pile will bear in.
+
+        Returns:
+            None
+
+        """
+        if intact_soil.underlying_layer is not None:
+            bearing_layer_depth = intact_soil.layer_thickness + intact_soil.layer_depth
+        else:
+            bearing_layer_depth = math.inf
+        
+        depth = np.linspace(0, slide_mass.layer_thickness, num=5)
         zB = depth/self.width
         kq = coeff_kq(slide_mass.phi, zB)
         kc = coeff_kc(slide_mass.phi, zB)
@@ -102,9 +149,9 @@ class Pile():
         resultant = (depth + np.append(0, depth[:-1]))*(sigma_V + np.append(0, sigma_V[:-1]))/2
         fz = resultant*z
 
-        final_depth = slide_mass.layer_depth*self.width
-        final_zb = slide_mass.layer_depth
-        final_sigma_V = intact_soil.gamma*(final_depth-slide_mass.layer_depth) + slide_mass.gamma*slide_mass.layer_depth
+        final_depth = intact_soil.layer_depth*self.width
+        final_zb = intact_soil.layer_depth
+        final_sigma_V = intact_soil.gamma*(final_depth-intact_soil.layer_depth) + slide_mass.gamma*intact_soil.layer_depth
         final_sigma_L = final_sigma_V*(coeff_kq(final_zb, intact_soil.phi)) + (coeff_kc(final_zb, intact_soil.phi))*intact_soil.cohesion
     
         self.sum_T = np.sum(resultant[1:])
@@ -112,39 +159,59 @@ class Pile():
 
         self.z_bar = sum_fz/self.sum_T
     
-        self.sigma_avg = (final_sigma_L - sigma_L[-1]) / (final_depth - slide_mass.layer_depth)
+        self.sigma_avg = (final_sigma_L - sigma_L[-1]) / (final_depth - intact_soil.layer_depth)
         self.sigma_L_ds = sigma_L[-1]
         
-        min_d = slide_mass.layer_depth
+        min_d = intact_soil.layer_depth
         d1 = (-((sigma_L[-1]*2)/self.sigma_avg) + np.sqrt(((sigma_L[-1]*2)/self.sigma_avg)**2 - 4*(-(self.sum_T + (self.sigma_avg/2)*min_d**2 + sigma_L[-1]*min_d)/self.sigma_avg)))/2
         d_d1 = min_d - d1
-        F1L1 = (sigma_L[-1]*d1* ( (slide_mass.layer_depth-self.z_bar) + (d1/2) )) + ( (self.sigma_avg/2)*(d1**2)*( (slide_mass.layer_depth-self.z_bar) + 2*(d1/3)) )
-        F2L2 = ( (sigma_L[-1]+self.sigma_avg*d1)*d_d1*((slide_mass.layer_depth-self.z_bar)+d1+(d_d1/2)) ) + ( (self.sigma_avg/2)*(d_d1**2)*( (slide_mass.layer_depth-self.z_bar)+d1+(2*d_d1/3)) )
+        F1L1 = (sigma_L[-1]*d1* ( (intact_soil.layer_depth-self.z_bar) + (d1/2) )) + ( (self.sigma_avg/2)*(d1**2)*( (intact_soil.layer_depth-self.z_bar) + 2*(d1/3)) )
+        F2L2 = ( (sigma_L[-1]+self.sigma_avg*d1)*d_d1*((intact_soil.layer_depth-self.z_bar)+d1+(d_d1/2)) ) + ( (self.sigma_avg/2)*(d_d1**2)*( (intact_soil.layer_depth-self.z_bar)+d1+(2*d_d1/3)) )
         
         while abs(1 - F1L1/F2L2) > 0.01:
             d1 = (-((sigma_L[-1]*2)/self.sigma_avg) + np.sqrt(((sigma_L[-1]*2)/self.sigma_avg)**2 - 4*(-(self.sum_T + (self.sigma_avg/2)*min_d**2 + sigma_L[-1]*min_d)/self.sigma_avg)))/2
             d_d1 = min_d - d1
 
-            F1L1 = (sigma_L[-1]*d1* ( (slide_mass.layer_depth-self.z_bar) + (d1/2) )) + ( (self.sigma_avg/2)*(d1**2)*( (slide_mass.layer_depth-self.z_bar) + 2*(d1/3)) )
+            F1L1 = (sigma_L[-1]*d1* ( (intact_soil.layer_depth-self.z_bar) + (d1/2) )) + ( (self.sigma_avg/2)*(d1**2)*( (intact_soil.layer_depth-self.z_bar) + 2*(d1/3)) )
             
-            F2L2 = ( (sigma_L[-1]+self.sigma_avg*d1)*d_d1*((slide_mass.layer_depth-self.z_bar)+d1+(d_d1/2)) ) + ( (self.sigma_avg/2)*(d_d1**2)*( (slide_mass.layer_depth-self.z_bar)+d1+(2*d_d1/3)) )
+            F2L2 = ( (sigma_L[-1]+self.sigma_avg*d1)*d_d1*((intact_soil.layer_depth-self.z_bar)+d1+(d_d1/2)) ) + ( (self.sigma_avg/2)*(d_d1**2)*( (intact_soil.layer_depth-self.z_bar)+d1+(2*d_d1/3)) )
             if F2L2 > F1L1:
                 min_d -= 0.01
             else:
                 min_d += 0.01
-
+        
         self.pile_depth = min_d
         self.depth_SF = 1.3*self.pile_depth
-        self.embedment = self.depth_SF + slide_mass.layer_depth
+        self.embedment = self.depth_SF + intact_soil.layer_depth
+        
+        if self.pile_depth > bearing_layer_depth:
+            calculate_min_depth(slide_mass, intact_soil.underlying_layer)
     
     def bending_moment(self, slide_mass, intact_soil):
+        """
+        bending moment calculation.
+
+        Args:
+            slide_mass : (Soil) 
+            a Soil instance representing the slide mass.
+
+            intact_soil : (Soil) 
+            a Soil instance representing the intact soil
+            layer the pile will bear in.
+
+        Returns:
+            None
+        """
         x = (self.sigma_L_ds + np.sqrt(self.sigma_L_ds**2 + 2*self.sigma_avg*self.sum_T))/(2*self.sigma_avg)
-        self.moment = (self.sum_T*(x+slide_mass.layer_depth-self.z_bar) - ((self.sigma_avg*(x**3))/6) - ((self.sigma_L_ds*(x**2))/2))/1000
-        self.moment_arm = x+slide_mass.layer_depth
+        self.moment = (self.sum_T*(x+intact_soil.layer_depth-self.z_bar) - ((self.sigma_avg*(x**3))/6) - ((self.sigma_L_ds*(x**2))/2))/1000
+        self.moment_arm = x+intact_soil.layer_depth
         
     def print_results(self):
         """
+        prints results of the results of the pin pile calculations to the terminal
+        in a narrative fashion for quick, easy interpretation.
         """
+
         print("The pin pile retaining wall should have a minimum"
               " total embedment of {} feet and a minimum embedment"
               " below the failure surface of {} feet.\n".format(round(self.embedment,2), round(self.pile_depth,2)))
@@ -160,7 +227,26 @@ class Pile():
         print("The pin pile wall may be designed using a maximum bending"
               " moment of {} kip-feet per foot located at {} feet below"
               " the top of the pin pile\n".format(round(self.moment,2), round(self.moment_arm,2)))
-        
+
+
+    def design_depth(self, soil_profile):
+        """
+        Calculates and returns required design depth for the pin piles
+        to retain the slide mass as defined by user. 
+
+        Args:
+            soil_profile : (Soil) 
+            a Soil instance representing the subsurface profile.
+
+        Returns:
+            None
+        """
+        slide_mass = soil_profile
+        intact_soil = soil_profile.underlying_layer
+
+        self.calculate_min_depth(slide_mass, intact_soil)
+        self.bending_moment(slide_mass, intact_soil)
+
 def coeff_kq(phi, x):
     """
     Determines appropriate K_q coefficient based on friction angle and depth.
