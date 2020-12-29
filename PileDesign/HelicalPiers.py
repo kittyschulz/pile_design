@@ -4,7 +4,9 @@ from soil import Soil
 
 class HelicalPier():
     """
-
+    A class used to represent a Helical Pier and its 
+    physical and structural properties. 
+    
     The built-in pier structural specifications
     are based on MacClean Dixie products. For those
     utilizing piers from other manufcatures, or custom-
