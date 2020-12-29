@@ -238,7 +238,7 @@ def coeff_kc(phi, x):
         kc (float): K_c coefficient of soil. 
     """
 
-    x += 0.1
+    x += 0.1 
     if phi > 47.5:
         kc = 759	
     elif phi > 42.5:			
