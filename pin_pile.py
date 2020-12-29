@@ -2,7 +2,7 @@ import numpy as np
 import math 
 from soil import Soil
 
-class Pile():
+class PinPile():
     """
     A class used represent a series of pin piles and calculate the required
     design specifications based on the material properties of the pile and soil.
