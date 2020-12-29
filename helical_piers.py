@@ -1,11 +1,116 @@
 import numpy as np
 import math 
 from soil import Soil
-       
+
 class HelicalPier():
     """
-    A class used represent a Helical Pier and calculate the required
-    design specifications based on the material properties of the pier and soil.
+
+    The built-in pier structural specifications
+    are based on MacClean Dixie products. For those
+    utilizing piers from other manufcatures, or custom-
+    fabricated piers, a method is included to override 
+    the built in specs.
+
+    Typical structural capacities for steel helical pier
+    with the given diameter:
+
+    SHAFT STRUCTURAL CAPACITIES
+    diam.      ax(z)      lat(y)
+    2,375     100.000     6.000
+    2,375     135.000     9.000
+    2,875     140.000     13.000
+    2,875     180.000     16.000
+    3,500     210.000     18.000
+    3,500     290.000     27.000
+    4,500     260.000     30.000
+    4,500     350.000     48.000
+
+    Attributes
+    ----------
+    diam : (flt)
+        pier shaft outer diameter
+    
+    plate_config : (list)
+        list of diameters of each plate comprising the helical pier
+    
+    axial_capacity : (flt)
+        ultimate axial capacity of the provided pier configuration
+    
+    lateral_capacity : (flt)
+        ultimate lateral capacity of the provided pier configuration
+
+    Methods
+    -------
+    override_pier_specs(pier_diam, ultimate_axial, ultimate_lateral):
+        Override the built-in pier structural specifications.
+
+    print_pier_specs(pier_diam=None):
+        Prints the built-in pier structural specifications to the console.
+    
+    torque():
+        Approximates the torque requried while driving the pier to achieve the desired axial capacity.
+    """
+
+    def __init__(self, pier_diam, plate_config: list):
+        self._pier_structural_specs = {2.375: [100., 6.], 2.875: [140., 13.], 3.500: [210., 18.], 4.500: [260., 30.]}
+        
+        self.diam = pier_diam
+        self.plate_config = plate_config
+
+        self.axial_capacity = self._pier_structural_specs[self.diam][0]
+        self.lateral_capacity = self._pier_structural_specs[self.diam][1] 
+
+        if self.diam > 5 and np.any(self.plate_config) < 12:
+            print("WARNING: Plates smaller than 12-inches diameter will "
+                  "provide little bearing capacity. The provided configuration 
+                  " is not recommended.")
+
+        inner_diameter = math.pi*(self.iam/12**2)/4
+        plate_area = np.array([math.pi*(plate/12**2)/4 for plate in self.plate_config])
+        plate_area -= inner_diameter
+
+        self.plate_area = sum(plate_area) 
+
+
+    def override_pier_specs(self, pier_diam, ultimate_axial, ultimate_lateral):
+        """
+        Override the built-in pier structural specifications. This method is useful
+        for those using non-standard piers and those by other pier manufacturers.
+        """
+        self._pier_structural_specs[pier_diam] = [ultimate_axial, ultimate_lateral]
+    
+    def print_pier_specs(self, pier_diam=None):
+        """
+        Prints the built-in pier structural specifications to the console. 
+        These specs can be overriden using the "override_pier_specs()" method.
+        The built-in specs are based on the most popular shaft configurations
+        from the MacClean Dixie helical pier specifications.
+        """
+        if pier_diam is not None and pier_diam in self._pier_structural_specs:
+            print('{}" OD Pier: \n '
+                  '   Ultimate Structural Axial Capacity: {}\n'
+                  '   Ultimate Structural Lateral Capacity: {}\n'.format(self._pier_structural_specs[pier_diam], self._pier_structural_specs[pier_diam][0], self._pier_structural_specs[pier_diam][1]))
+        else:
+            for pier in self._pier_structural_specs.keys():
+                print('{}" OD Pier: \n '
+                  '   Ultimate Structural Axial Capacity: {}\n'
+                  '   Ultimate Structural Lateral Capacity: {}\n'.format(self._pier_structural_specs[pier], self._pier_structural_specs[pier][0], self._pier_structural_specs[pier][1]))
+        return None
+
+    def torque(self):
+        """
+        Approximates the torque requried while driving the pier to achieve the desired axial capacity. 
+        """
+        tau = self.axial_capacity/9
+        print("The torque required to achieve the required axial capacity of {} is {} foot-pounds. "
+              "The torque may be monitored with a pressure gauge during installation to verify this axial capacity has been achieved.".format(self.axial_capacity, tau))
+        return tau
+       
+class SoilPierInteraction():
+    """
+    A class used represent a Helical Pier and its interaction with some Soil.
+    Calculates the required design specifications based on the material properties 
+    of the pier and soil.
 
     Please see README documentation for an in-depth discussion of the calculations
     performed to obtain the pile design parameters. 
@@ -15,21 +120,6 @@ class HelicalPier():
     required_capacity : (flt)
         required axial bearing capacity of the helical pier.
 
-    pier_diam : (flt)
-        OD of pier shaft.
-        
-    plate_config : (tuple)
-        tuple containing the diameter of each plate in the design plate configuration.
-
-    plate_area : (flt)
-        total bearing area of plate(s). 
-
-    pier_lateral_capacity : (flt)
-        allowable lateral capacity of the helical pier shaft.
-
-    pier_axial_capacity : (flt)
-        allowable axial capacity of the helical pier. 
-
     allowable_bearing_depth : (flt)
         minimum allowable bearing depth of bottom plate. 
 
@@ -38,37 +128,29 @@ class HelicalPier():
 
     Methods
     -------
+    soil_axial_capacity(pier, soil_profile, safety_factor=2):
+        Calculates the allowable axial bearing capacity of the soil 
+        and minimum-allowable bearing depth of the helical pier. 
 
-
-
+    soil_lateral_capacity(pier, batter=10, soil=self.allowable_bearing_strata):
+        Calculated the allowable lateral capacity of the soil. If the
+        soil provides no lateral capacity, the pier is then checked for 
+        buckling in this strata.
     """
 
-    
     def __init__(self, required_capacity):
         self.required_capacity = required_capacity
-
-        # none of these have been defined through any function.
-        # the shaft capacity is a function of pier diameter.
-        self._pier_structural_specs = {2.375: [100, 6], 2.875: [140, 13], 3.500: [210, 18], 4.500: [260, 30]}
-        
-        self.pier_diam = None
-        self.plate_config = []
-        self.plate_area = None
-        self.pier_lateral_capacity = None 
-        self.pier_axial_capacity = None
 
         self.allowable_bearing_depth = None
         self.allowable_bearing_strata = None
 
-
-    
-    def _calculate_bearing_capacity(self, soil, safety_factor):
+    def _calculate_bearing_capacity(self, pier, soil, safety_factor):
         soil.Nq = (0.3359)*np.exp(0.1247*self.phi)
         
         depths = np.arange(soil.layer_depth, (soil.layer_thickness+soil.layer_depth), 0.5)
 
-        cohesive = self.plate_area*soil.cohesion*9
-        cohesionless = (self.plate_area*soil.Nq*soil.gamma)*depths
+        cohesive = pier.plate_area*soil.cohesion*9
+        cohesionless = (pier.plate_area*soil.Nq*soil.gamma)*depths
         total_capacities = (cohesionless+cohesive)/safety_factor
 
         if np.all(total_capacities > self.required_capacity):
@@ -124,7 +206,7 @@ class HelicalPier():
             first_suitable_layer = len(hazards) - 1 - hazards[::-1].index(True)
         return first_suitable_layer
 
-    def capacity(self, soil_profile, safety_factor=2):
+    def soil_axial_capacity(self, pier, soil_profile, safety_factor=2):
         soil_layer = soil_profile
         layer_number = 0
 
@@ -134,82 +216,30 @@ class HelicalPier():
             soil_layer = soil.underlying_layer
             layer_number += 1
             
-        _calculate_bearing_capacity(soil_layer, safety_factor)
+        _calculate_bearing_capacity(pier, soil_layer, safety_factor)
 
-    def torque(self):
-        pass
+    def soil_lateral_capacity(self, pier, batter=10, soil=self.allowable_bearing_strata):
+        if soil.hazard == True:
+            print("HAZARD WARNING: Sensitive soils provide no lateral capacity. "
+                    "Function will check for buckling of structural member though this stratum "
+                    "instead of lateral capacity.")
 
-    # def spacing(self, FS=3):
-    #     # capacity/P/FS
-    #     pass
+            k_h = 0.2 # Most conservative value in the range of acceptable values from [0.1, 0.2].
+            r_value = ((29000000*0.851)/(k_h*pier.pier_diam))**0.25
+            i_max = soil.layer_thickness/r_value
 
-    def lateral_capacity(self, soils, batter=10):
+            ultimate_capacity = 3*(29000000*i_max/r_value**2)
+            allowable_capacity = ultimate_capacity/2
 
-        for soil in soils:
-            if soil.hazard == True:
-                print("HAZARD WARNING: Sensitive soils provide no lateral capacity. "
-                      "Function will check for buckling of structural member though this stratum "
-                      "instead of lateral capacity.")
+            if allowable_capacity < pier.lateral_capacity:
+            # need to add a function to get the approximated lower bound of the shaft capacity given a pier shaft of diameter d
+                print("BUCKLING WARNING: Lack of adequate lateral capacity from "
+                        "{} to {} feet below ground surface. Allowable capacity "
+                        "does not exceed {} pounds. Required capacity is {} pounds. "
+                        "Increase pier diameter or number of piers in group.".format(soil.top_depth, soil.top_depth+soil.layer_thickness, allowable_capacity, self.required_capacity))
 
-                # Nope, but need to give it a dummy until I remember how to calculate it.
-                k_h = 10
-                r_value = ((29000000*0.851)/(k_h*self.pier_diam))**0.25
-                i_max = soil.layer_thickness/r_value
-
-                ultimate_capacity = 3*(29000000*i_max/r_value**2)
-                allowable_capacity = ultimate_capacity/2
-                if allowable_capacity < self.pier_lateral_capacity:
-                # need to add a function to get the approximated lower bound of the shaft capacity given a pier shaft of diameter d
-                    print("BUCKLING WARNING: Lack of adequate lateral capacity from "
-                          "{} to {} feet below ground surface. Allowable capacity "
-                          "does not exceed {} pounds. Required capacity is {} pounds. "
-                          "Increase pier diameter or number of piers in group.".format(soil.top_depth, soil.top_depth+soil.layer_thickness, allowable_capacity, self.required_capacity))
-
-            else: 
-                
-                # ultimate capacity needs to be defined!
-                ultimate_capacity = False 
-                horizontal_component = np.tan(batter)*ultimate_capacity
-                return horizontal_component
-
-    def _plate_area(self):
-        if self.pier_diam > 5 and np.any(self.plate_config) < 12:
-            print("WARNING: Plates smaller than 12-inches diameter will "
-                  "provide little bearing capacity. The provided configuration 
-                  " is not recommended.")
-
-        inner_diameter = math.pi*(self.pier_diam/12**2)/4
-        plate_area = np.array([math.pi*(plate/12**2)/4 for plate in self.plate_config])
-        plate_area -= inner_diameter
-
-        self.plate_area = sum(plate_area)
-        
-    def override_pier_specs(self,pier_diam, ultimate_axial, ultimate_lateral):
-        self._pier_structural_specs[pier_diam] = [ultimate_axial, ultimate_lateral]
-
-    def print_pier_specs(self, pier_diam=None):
-        if pier_diam is not None and pier_diam in self._pier_structural_specs:
-            print('{}" OD Pier: \n '
-                  '   Ultimate Structural Axial Capacity: {}\n'
-                  '   Ultimate Structural Lateral Capacity: {}\n'.format(self._pier_structural_specs[pier_diam], self._pier_structural_specs[pier_diam][0], self._pier_structural_specs[pier_diam][1])
-        else:
-            for pier in self._pier_structural_specs.keys():
-                print('{}" OD Pier: \n '
-                  '   Ultimate Structural Axial Capacity: {}\n'
-                  '   Ultimate Structural Lateral Capacity: {}\n'.format(self._pier_structural_specs[pier], self._pier_structural_specs[pier][0], self._pier_structural_specs[pier][1])
-
-def required_pier_capacity(load, FS=2, piers_in_group=1):
-    return load/(FS*piers_in_group)
-
-
-
-# for reference:
-# SHAFT STRUCTURAL CAPACITIES
-# 2,375     100.000     6.000
-# 2,375     135.000     9.000
-# 2,875     140.000     13.000
-# 2,875     180.000     16.000
-# 3,500     210.000     18.000
-# 3,500     290.000     27.000
-# 4,500     260.000     30.000
-# 4,500     350.000     48.000
+        else: 
+            k_p = (1 + np.sin(soil.phi)/(1 - np.sin(soil.phi)))
+            ultimate_capacity = kp*(pier.diam**3)*(soil.gamma)
+            horizontal_component = np.tan(batter)
+            return horizontal_component*ultimate_capacity
